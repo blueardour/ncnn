@@ -287,28 +287,28 @@ int demo(ncnn::Net &net, char *fname, int h, int w) {
   ncnn::Mat centerness[5];
   ncnn::Mat bbox_reg[5];
   ncnn::Mat logits[5];
-  ex.extract("P3centerness", centerness[0]);
-  ex.extract("P4centerness", centerness[1]);
-  ex.extract("P5centerness", centerness[2]);
-  ex.extract("P6centerness", centerness[3]);
-  ex.extract("P7centerness", centerness[4]);
-  ex.extract("P3bbox_reg", bbox_reg[0]);
-  ex.extract("P4bbox_reg", bbox_reg[1]);
-  ex.extract("P5bbox_reg", bbox_reg[2]);
-  ex.extract("P6bbox_reg", bbox_reg[3]);
-  ex.extract("P7bbox_reg", bbox_reg[4]);
-  ex.extract("P3logits", logits[0]);
-  ex.extract("P4logits", logits[1]);
-  ex.extract("P5logits", logits[2]);
-  ex.extract("P6logits", logits[3]);
-  ex.extract("P7logits", logits[4]);
+  std::vector <int> strides;
+  int i;
+  char bname[256];
+  for(i=0; i<5; i++) {
+    sprintf(bname, "P%dcenterness", i+3);
+    if(ex.extract(bname, centerness[i]) != 0) break;
 
-  std::vector <int> strides { 8, 16, 32, 64, 128 };
+    sprintf(bname, "P%dbbox_reg", i+3);
+    if(ex.extract(bname, bbox_reg[i]) != 0) break;
+
+    sprintf(bname, "P%dlogits", i+3);
+    if(ex.extract(bname, logits[i]) != 0) break;
+    strides.push_back(8 << i);
+  }
+  fprintf(stdout, "FPN level: %ld\n", strides.size());
+
   std::vector <BBox> detection;
   postprocess(detection, centerness, bbox_reg, logits, strides);
 
   // print result
-  for(int i=0; i<detection.size(); i++) {
+  fprintf(stdout, "Detect %ld objects\n", detection.size());
+  for(i=0; i<detection.size(); i++) {
     detection[i].print();
   }
 
