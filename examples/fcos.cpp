@@ -174,15 +174,15 @@ int ml_nms(std::vector<BBox> &boxlist, std::vector<int> &keep, float nms_thresh)
   int i;
 
   // shift box according to label to seperate different categories
-  int max, min;
-  max = min = 0;
+  float max;
+  max = 0;
   for(i=0; i<boxlist.size(); i++) {
     max = max < boxlist[i].box[0] ? boxlist[i].box[0] : max;
     max = max < boxlist[i].box[1] ? boxlist[i].box[1] : max;
     max = max < boxlist[i].box[2] ? boxlist[i].box[2] : max;
     max = max < boxlist[i].box[3] ? boxlist[i].box[3] : max;
   }
-  max = max + 1;
+  max = max + 1.0f;
 
   for(i=0; i<boxlist.size(); i++) {
     boxlist[i].box[0] += boxlist[i].label * max;
@@ -199,10 +199,10 @@ int ml_nms(std::vector<BBox> &boxlist, std::vector<int> &keep, float nms_thresh)
 
   // shift box back
   for(i=0; i<keep.size(); i++) {
-    boxlist[keep[i]].box[0] -= boxlist[i].label * max;
-    boxlist[keep[i]].box[1] -= boxlist[i].label * max;
-    boxlist[keep[i]].box[2] -= boxlist[i].label * max;
-    boxlist[keep[i]].box[3] -= boxlist[i].label * max;
+    boxlist[keep[i]].box[0] -= boxlist[keep[i]].label * max;
+    boxlist[keep[i]].box[1] -= boxlist[keep[i]].label * max;
+    boxlist[keep[i]].box[2] -= boxlist[keep[i]].label * max;
+    boxlist[keep[i]].box[3] -= boxlist[keep[i]].label * max;
   }
   return 0;
 }
