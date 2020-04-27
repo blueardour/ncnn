@@ -4,6 +4,7 @@
 #include <vector>
 #include <queue>
 #include <math.h>
+#include <fstream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -208,7 +209,7 @@ int ml_nms(std::vector<BBox> &boxlist, std::vector<int> &keep, float nms_thresh)
 }
 
 int postprocess(std::vector <BBox> &detection, ncnn::Mat *centerness, ncnn::Mat *bbox_reg, ncnn::Mat *logits, std::vector <int> &strides,
-    bool thresh_with_ctr=false, float pre_nms_thresh=0.5f, int pre_nms_top_n=1000, float nms_thresh=0.6f, int post_nms_top_n=100)
+    float pre_nms_thresh=0.5f, float nms_thresh=0.6f, bool thresh_with_ctr=false, int pre_nms_top_n=1000, int post_nms_top_n=100)
 {
   int l, i;
   int channel, height, width, stride;
@@ -265,7 +266,7 @@ int postprocess(std::vector <BBox> &detection, ncnn::Mat *centerness, ncnn::Mat 
   return 0;
 }
 
-int demo(ncnn::Net &net, char *fname, int h, int w) {
+int demo(ncnn::Net &net, const char *fname, int h, int w, float cls, float nms) {
   cv::Mat img = cv::imread(fname, 1);
   if (img.empty()) {
     fprintf(stderr, "file(%s) read error\n", fname);
@@ -304,7 +305,7 @@ int demo(ncnn::Net &net, char *fname, int h, int w) {
   fprintf(stdout, "FPN level: %ld\n", strides.size());
 
   std::vector <BBox> detection;
-  postprocess(detection, centerness, bbox_reg, logits, strides);
+  postprocess(detection, centerness, bbox_reg, logits, strides, cls, nms);
 
   // print result
   fprintf(stdout, "Detect %ld objects\n", detection.size());
@@ -318,21 +319,26 @@ int demo(ncnn::Net &net, char *fname, int h, int w) {
 int main(int argc, char **argv) {
   char *param, *bin;
   int height, width;
+  float cls_threshold, iou_threshold;
   param = bin = NULL;
   height = width = 0;
-  if (argc == 2 || argc == 4 || argc == 6) {
+  cls_threshold = 0.5f;
+  iou_threshold = 0.6f;
+  if (argc == 2 || argc == 4 || argc == 6 || argc == 7 || argc == 8) {
     if(argc >= 3) param = argv[2]; else param = "net.param";
     if(argc >= 4) bin = argv[3]; else bin = "net.bin";
     if(argc >= 5) height = atoi(argv[4]); else height = 512;
     if(argc >= 6) width = atoi(argv[5]); else width = 640;
+    if(argc >= 7) cls_threshold = atof(argv[6]); else cls_threshold = 0.5f;
+    if(argc >= 8) iou_threshold = atof(argv[7]); else iou_threshold = 0.6f;
   } else {
-    fprintf(stderr, "Usage: %s [imagenet file | file.lst] [param] [bin] [height] [width]\n", argv[0]);
-    fprintf(stderr, "\t default: [param]=net.param [bin]=net.bin [height]=512 [width]=640\n");
+    fprintf(stderr, "Usage: %s [imagenet file | file.lst] [param] [bin] [height] [width] [cls_threshold] [iou_threshold]\n", argv[0]);
+    fprintf(stderr, "\t default: [param]=net.param [bin]=net.bin [height]=512 [width]=640 [cls_threshold]=0.5f [iou_threshold]=0.6f\n");
     return -1;
   }
 
   if(param == NULL || bin == NULL || height <= 0 || width <= 0) {
-    fprintf(stderr, "\t error parameters\n");
+    fprintf(stderr, "error parameters\n");
     return -2;
   }
 
@@ -344,8 +350,17 @@ int main(int argc, char **argv) {
   char *tmp;
   tmp = strrchr(argv[1], '.');
   if(tmp == NULL || strcmp(tmp, "lst") == 0 || strcmp(tmp, "txt") == 0) {
+    std::ifstream infile(argv[1]);
+    std::string line;
+    while(std::getline(infile, line)) {
+      fprintf(stdout, "processing file %s\n", line.c_str());
+      ret = demo(net, line.c_str(), height, width, cls_threshold, iou_threshold);
+      if(ret != 0) {
+        fprintf(stderr, "error when processing %s\n", line.c_str());
+      }
+    }
   } else {
-    ret = demo(net, argv[1], height, width);
+    ret = demo(net, argv[1], height, width, cls_threshold, iou_threshold);
   }
 
   net.clear();
